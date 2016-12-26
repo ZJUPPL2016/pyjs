@@ -134,7 +134,7 @@ yield_arg='from' _ test / testlist
 whitespace = "\t" / "\v" / "\f" / " " 
 _  = whitespace*
 NAME=[a-zA-Z][0-9a-zA-Z_]*
-NEWLINE=&{}"\r\n" / "\n" / "\r"
+NEWLINE= "\r\n" / "\n" / "\r"
 ENDMARKER= &{return true;} {return "END";}
 ASYNC='async'
 INDENT = i:[ \t]+ &{return i.length > indent.length;} {indentStack.push(indent);indent = i.join(""); }
