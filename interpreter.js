@@ -19,4 +19,4 @@ try {
     return e.location !== undefined
       ? "Line " + e.location.start.line + ", column " + e.location.start.column + ": " + e.message
       : e.message;
-  }
+}

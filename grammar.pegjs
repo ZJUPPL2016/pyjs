@@ -3,6 +3,35 @@
     console.log(text);
   }
   var indentStack = [], indent = "";
+
+  var BaseTypeEnum = Object.freeze({
+    NUMBER: 'NUMBER',
+    STRING: 'STRING',
+    NAME: 'NAME'
+  })
+
+  // class AbstractObject {
+  //   constructor(type, data) {
+  //     this.type = type;
+  //     this.data = data;
+  //   }
+  // }
+
+  // class NumberObject {
+  //   constructor(num) {
+  //     super(BaseTypeEnum.NUMBER, num);
+  //   }
+  // }
+
+  // class StringObject {
+  //   constructor(str) {
+  //     super(BaseTypeEnum.STRING, str);
+  //   }
+  // }
+
+  function checkType(a, b) {
+    return a.type === b.type;
+  }
 }
 
 /*single_input= NEWLINE / simple_stmt / compound_stmt NEWLINE*/ 
@@ -76,31 +105,185 @@ with_item= test ( _ 'as' _ expr)?
 except_clause= 'except' _ (test ( _ 'as' _ NAME)?)?
 suite= simple_stmt / NEWLINE INDENT stmt (SAMEDENT stmt)* DEDENT
 
-test=or_test ('if' _ or_test _ 'else' _ test)? /lambdef
+test=ot:or_test ('if' _ or_test _ 'else' _ test)? {
+  return ot;
+} / lambdef
 test_nocond= or_test / lambdef_nocond
+
 lambdef= 'lambda' _ (varargslist)? _ ':' _ test
 lambdef_nocond= 'lambda' _ (varargslist)? _ ':' _ test_nocond
-or_test= and_test ( _ 'or' _ and_test)*
-and_test= not_test ( _ 'and' _ not_test)*
-not_test='not' _ not_test /comparison
-comparison= expr (_ comp_op _ expr)*
 
-comp_op= '>='/'<='/'<'/'>'/'=='/'<>'/'!='/'in'/('not' 'in')/'is'/('is' 'not')
-star_expr= '*' _ expr
-expr= xor_expr (_ '|' _ xor_expr)*
-xor_expr= and_expr (_ '^' _ and_expr)*
-and_expr= shift_expr (_ '&' _ shift_expr)*
-shift_expr= arith_expr ( _ ('<<'/'>>') _ arith_expr)*
-arith_expr= term ( _ ('+'/'-') _ term)*
-term= factor ( _ ('*'/'@'/'/'/'%'/'//') _ factor)*
-factor= ('+'/'-'/'~') factor / power
-power= atom_expr ( _ '**' _ factor)?
-atom_expr= (AWAIT)? atom trailer*
-atom= ('(' _ (yield_expr/testlist_comp)? _ ')' /
-       '[' _ (testlist_comp)? _ ']' /
-       '{' _ (dictorsetmaker)? _ '}' /
-       NAME / NUMBER / STRING+ / '...' / 'None' / 'True' / 'False')
-testlist_comp= (test/star_expr) ( comp_for / ( _ ',' _ (test/star_expr))* (',')? )
+or_test= head:and_test tail:( _ 'or' _ and_test)* {
+    var result = head, i;
+  
+  for (i = 0; i < tail.length; i++) {
+    result = result || tail[i][3];
+  }
+
+  console.log(text()+" "+result);
+  return result;
+}
+and_test= head:not_test tail:( _ 'and' _ not_test)* {
+  var result = head, i;
+  
+  for (i = 0; i < tail.length; i++) {
+    result = result && tail[i][3];
+  }
+
+  console.log(text()+" "+result);
+  return result;
+}
+
+not_test='not' _ nt:not_test {
+  return !nt;
+} / comparison:comparison {
+  return comparison;
+}
+comparison= head:expr tail:(_ comp_op _ expr)* {
+  var result = head, i;
+  
+  for (i = 0; i < tail.length; i++) {
+    switch(tail[i][1]) {
+      case '>=':
+        return result >= tail[i][3];
+      case '<=':
+        return result <= tail[i][3];
+      case '<':
+        return result < tail[i][3];
+      case '>':
+        return result > tail[i][3];
+      case '==':
+        return result == tail[i][3];
+      case '!=':
+        return result != tail[i][3];
+      case 'in':
+        //TODO or never do
+      case 'not in':
+        //TODO or never do
+      case 'is':
+        //TODO or never do
+      case 'is not':
+        //TODO or never do
+    }
+  }
+
+  console.log(text()+" "+result);
+  return result;
+}
+
+comp_op= '>='/'<='/'<'/'>'/'=='/'!='/'in'/('not' 'in')/'is'/('is' 'not')
+
+//TODO or never do
+star_expr= '*' _ expr {
+
+}
+
+expr= head:xor_expr tail:(_ '|' _ xor_expr)* {
+  var result = head, i;
+  
+  for (i = 0; i < tail.length; i++) {
+    result = result | tail[i][3];
+  }
+
+  console.log(text()+" "+result);
+  return result;
+}
+
+xor_expr= head:and_expr tail:(_ '^' _ and_expr)* {
+  var result = head, i;
+  
+  for (i = 0; i < tail.length; i++) {
+    result = result ^ tail[i][3];
+  }
+
+  console.log(text()+" "+result);
+  return result;
+}
+
+and_expr= head:shift_expr tail:(_ '&' _ shift_expr)* {
+  var result = head, i;
+  
+  for (i = 0; i < tail.length; i++) {
+    result = result & tail[i][3];
+  }
+
+  console.log(text()+" "+result);
+  return result;
+}
+
+shift_expr= head:arith_expr tail:( _ ('<<'/'>>') _ arith_expr)* {
+  var result = head, i;
+  
+  for (i = 0; i < tail.length; i++) {
+    if (tail[i][1] === '<<') { result = result << tail[i][3]; }
+    if (tail[i][1] === '>>') { result = result >> tail[i][3]; }
+  }
+
+  console.log(text()+" "+result);
+  return result;
+}
+
+arith_expr= head:term tail:( _ ('+'/'-') _ term)* {
+  var result = head, i;
+  
+  for (i = 0; i < tail.length; i++) {
+    if (tail[i][1] === '+') { result += tail[i][3]; }
+    if (tail[i][1] === '-') { result -= tail[i][3]; }
+  }
+
+  console.log(text()+" "+result);
+  return result;
+}
+
+term= head:factor tail:( _ ('*'/'/'/'%') _ factor)* {
+  var result = head, i;
+
+  for (i = 0; i < tail.length; i++) {
+    if (tail[i][1] === '*') { result *= tail[i][3]; }
+    if (tail[i][1] === '/') { result /= tail[i][3]; }
+    if (tail[i][1] === '%') { result %= tail[i][3]; }
+  }
+  console.log(text()+" "+result);
+  return result;
+}
+
+factor= prefix:('+'/'-'/'~') factor:factor {
+  if (prefix === '+') return factor;
+  if (prefix === '-') return -factor;
+  if (prefix === '~') return ~factor;
+} / power:power {
+  return power;
+}
+
+power= atom_expr:atom_expr ( _ '**' _ factor)? {
+  return atom_expr;
+}
+
+atom_expr= (AWAIT)? atom:atom trailer* {
+  return atom;
+}
+
+atom=
+  '(' _ tc:(yield_expr/testlist_comp)? _ ')' {
+    return tc;
+  } / 
+  '[' _ (testlist_comp)? _ ']' / 
+  '{' _ (dictorsetmaker)? _ '}' / 
+  NAME / 
+  num:NUMBER {
+    return num;
+  } /
+  STRING+ / 
+  '...' / 
+  'None' / 
+  'True' / 
+  'False'
+
+//TODO
+testlist_comp= t:(test/star_expr) ( comp_for / ( _ ',' _ (test/star_expr))* (',')? ) {
+  return t;
+}
+
 trailer= '('  _ (arglist)? _ ')' / '[' _  subscriptlist _ ']' /'.' NAME
 subscriptlist= subscript ( _ ',' _ subscript)* (',')?
 subscript= test / (test)? ':' (test)? (sliceop)?
@@ -125,7 +308,6 @@ comp_iter= comp_for / comp_if
 comp_for= 'for' _ exprlist _ 'in' _ or_test (comp_iter)?
 comp_if= 'if' _ test_nocond (comp_iter)?
 
-
 encoding_decl= NAME
 
 yield_expr= 'yield' _ (yield_arg)?
@@ -149,14 +331,17 @@ SAMEDENT = i:[ \t]* &{
 }
 DEDENT = &{return true;}{indent = indentStack.pop();}
 AWAIT='await'
-NUMBER=[+-]?([0-9]*[.])?[0-9]+
-STRING
-  = '"' chars:DoubleStringCharacter* '"' {
-      return { type: "Literal", value: chars.join("") };
-    }
-  / "'" chars:SingleStringCharacter* "'" {
-      return { type: "Literal", value: chars.join("") };
-    }
+
+NUMBER=[+-]?([0-9]*[.])?[0-9]+ {
+  //return new NumberObject(Number(text()));
+  return Number(text());
+}
+
+STRING= '"' chars:DoubleStringCharacter* '"' {
+  return text();
+} / "'" chars:SingleStringCharacter* "'" {
+  return text();
+}
 
 DoubleStringCharacter
   = !('"' / "\\" / LineTerminator) . { return text(); }
