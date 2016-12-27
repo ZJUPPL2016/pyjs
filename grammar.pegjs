@@ -10,81 +10,24 @@
     NAME: 'NAME'
   })
 
-  var SymbolTypeEnum = Object.freeze({
-    NORMAL: 'NORMAL';
-    GLOBAL: 'GLOBAL';
-  })
+  // class AbstractObject {
+  //   constructor(type, data) {
+  //     this.type = type;
+  //     this.data = data;
+  //   }
+  // }
 
-  class AbstractObject {
-    constructor(type, data) {
-      this.type = type;
-      this.data = data;
-    }
-  }
+  // class NumberObject {
+  //   constructor(num) {
+  //     super(BaseTypeEnum.NUMBER, num);
+  //   }
+  // }
 
-  class NumberObject extends AbstractObject{
-    constructor(num) {
-      super(BaseTypeEnum.NUMBER, num);
-    }
-  }
-
-  class StringObject extends AbstractObject{
-    constructor(str) {
-      super(BaseTypeEnum.STRING, str);
-    }
-  }
-
-  class NameObject extends AbstractObject{
-    constructor(type, name) {
-      super(BaseTypeEnum.NAME, {type: type, name: name});
-    }
-  }
-
-  var symbolTableStack = [];
-  var localSymbolTable = {};
-  var globalSymbolTable = {};
-  var scopeLevel = 0; // 0 means global
-
-  function enterScope() {
-    if (scopeLevel === 0) {
-      globalSymbolTable = localSymbolTable;
-    }
-    symbolTableStack.push(localSymbolTable);
-    scopeLevel++;
-    localSymbolTable = [];
-  }
-
-  function exitScope() {
-    assert(scopeLevel !== 0);
-    localSymbolTable = symbolTableStack.pop();
-  }
-
-  function findSymbol(s) {
-    if (s.data.type === SymbolTypeEnum.GLOBAL) {
-      return findSymbolInSymbolTable(s, globalSymbolTable);
-    } else {
-      return findSymbolInSymbolTable(s, localSymbolTable);
-    }
-  }
-
-  function findSymbolInSymbolTable(s, symbolTable) {
-    if (s.data.name in symbolTable) {
-      return symbolTable[s.data.name];
-    } else {
-      if (s.data.type === SymbolTypeEnum.GLOBAL) {
-        return undefined;
-      } else{
-        var enclosedSymbolTable = symbolTableStack.pop();
-        if (enclosedSymbolTable != undefined) {
-          var result = findSymbolInSymbolTable(s, enclosedSymbolTable);
-          symbolTableStack.push(enclosedSymbolTable);
-          return result;
-        } else {
-          return undefined;
-        }
-      }
-    }
-  }
+  // class StringObject {
+  //   constructor(str) {
+  //     super(BaseTypeEnum.STRING, str);
+  //   }
+  // }
 
   function checkType(a, b) {
     return a.type === b.type;
@@ -372,11 +315,7 @@ yield_arg='from' _ test / testlist
 
 whitespace = "\t" / "\v" / "\f" / " " 
 _  = whitespace*
-
-NAME=[a-zA-Z][0-9a-zA-Z_]* {
-
-}
-
+NAME=[a-zA-Z][0-9a-zA-Z_]*
 NEWLINE= "\r\n" / "\n" / "\r"
 ENDMARKER= &{return true;} {return "END";}
 ASYNC='async'
@@ -394,14 +333,14 @@ DEDENT = &{return true;}{indent = indentStack.pop();}
 AWAIT='await'
 
 NUMBER=[+-]?([0-9]*[.])?[0-9]+ {
-  return new NumberObject(Number(text()));
-  //return Number(text());
+  //return new NumberObject(Number(text()));
+  return Number(text());
 }
 
 STRING= '"' chars:DoubleStringCharacter* '"' {
-  return new StringObject(text());
+  return text();
 } / "'" chars:SingleStringCharacter* "'" {
-  return new StringObject(text());
+  return text();
 }
 
 DoubleStringCharacter
