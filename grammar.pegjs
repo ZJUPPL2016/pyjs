@@ -59,7 +59,8 @@
     NUMBER: 'NUMBER',
     STRING: 'STRING',
     NAME: 'NAME',
-    SYMBOL: 'SYMBOL'
+    SYMBOL: 'SYMBOL',
+    BOOLEAN: 'BOOLEAN'
   });
 
   class AbstractObject {
@@ -92,6 +93,12 @@
           super(BaseTypeEnum.SYMBOL, data);
       }
   }
+
+  class BooleanObject extends AbstractObject {
+      constructor(data) {
+          super(BaseTypeEnum.BOOLEAN, data);
+      }
+  }
 }
 Start
   = file_input
@@ -108,7 +115,7 @@ async_funcdef= ASYNC _ funcdef
 funcdef='def' _ id:NAME params:parameters ('->'_ test)? _ ':' _ body:suite 
 {
       return {
-        type: "FunctionDefinition",
+        type: "FunctionDeclaration",
         id: id,
         params: params,
         body: body
@@ -138,7 +145,7 @@ simple_stmt= head:(small_stmt) tail:(_ ';'_ small_stmt)* (';')? NEWLINE
         ? { type: "SequenceExpression", expressions: buildList(head, tail, 3) }
         : head;
     }
-small_stmt= global_stmt/expr_stmt
+small_stmt= global_stmt/flow_stmt/expr_stmt
 expr_stmt= left:testlist_star_expr  _ operator:augassign _ right:(yield_expr/testlist) {
     return {
       type: "AssignmentExpression",
@@ -161,7 +168,8 @@ flow_stmt= break_stmt / continue_stmt / return_stmt / raise_stmt / yield_stmt
 break_stmt
 ='break'{return { type: "BreakStatement", label: null }; }
 continue_stmt= 'continue'
-return_stmt= 'return' _ (testlist)?
+return_stmt
+= 'return' _ arg:(testlist)?{return {type:"ReturnStatement", argument:arg};}
 yield_stmt= yield_expr
 raise_stmt= 'raise' _ (test ('from' test)?)?
 import_stmt= import_name / import_from
@@ -253,10 +261,18 @@ term= head:factor tail:( _ ('*'/'@'/'/'/'%'/'//') _ factor)*{return buildBinaryE
 factor= ('+'/'-'/'~') factor / power
 power= head:atom_expr tail:( _ '**' _ factor)?
 { 
-  return head;
-    }
-atom_expr= (AWAIT)? mid:atom trailer*
-{return mid;}
+  if (tail) {
+    return buildBinaryExpression(head, tail);
+  } else {
+    return head;
+  }
+}
+atom_expr= (AWAIT)? mid:atom t:trailer* {
+  if(t.length == 0)
+    return mid;
+  else
+    return {type:"AtomWithTrailer", name: mid, trailer:t};
+}
 atom= '(' _ head:(yield_expr/testlist_comp)? _ ')' 
 {
   return head;
@@ -269,12 +285,14 @@ atom= '(' _ head:(yield_expr/testlist_comp)? _ ')'
        {
           return head;
        }/
-       head:(NAME / NUMBER / STRING+ / '...' / 'None' / 'True' / 'False')
+       head:( BOOLEAN / NAME / NUMBER / STRING+ / '...' / 'None' )
       {return head;}
       
 testlist_comp= head:(test/star_expr)  tail:( _ ',' _ (test/star_expr))* (',')? 
 {return buildList(head,tail,3);}
-trailer= '('  _ (arglist)? _ ')' / '[' _  subscriptlist _ ']' /'.' NAME
+trailer= '('  _ arglist:(arglist)? _ ')' {return {type:"CallFunction", arglist:arglist};}
+        / '[' _  subscriptlist _ ']' 
+        /'.' NAME
 subscriptlist= subscript ( _ ',' _ subscript)* (',')?
 
 subscript= test / (test)? ':' (test)? (sliceop)?
@@ -291,12 +309,16 @@ dictorsetmaker=( ((test _ ':' _ test /  '**' expr)
                    
 classdef= 'class' _ NAME ( '(' _ (arglist)? _ ')' )? _ ':' _ suite
 
-arglist=argument ( _ ',' _ argument)*  (',')?
+arglist=head:argument tail:( _ ',' _ argument)*  (',')? {
+  return buildList(head, tail, 3);
+}
 
-argument= ( test (comp_for)? /
+argument= t:( test (comp_for)? /
             test '=' test /
             '**' test /
-            '*' test )
+            '*' test ) {
+              return t;
+            }
 
 comp_iter= comp_for / comp_if
 comp_for= 'for' _ exprlist _ 'in' _ or_test (comp_iter)?
@@ -335,10 +357,13 @@ NUMBER=[+-]?([0-9]*[.])?[0-9]+ {
 }
 
 STRING= '"' chars:DoubleStringCharacter* '"' {
-  return new StringObject(text());
+  return new StringObject(text().slice(1, text().length - 1));
 } / "'" chars:SingleStringCharacter* "'" {
-  return new StringObject(text());
+  return new StringObject(text().slice(1, text().length - 1));
 }
+
+BOOLEAN = 'True' {return new BooleanObject(true);} 
+        / 'False'{return new BooleanObject(false);} 
 
 DoubleStringCharacter
   = !('"' / "\\" / LineTerminator) . { return text(); }
