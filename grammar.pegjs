@@ -108,7 +108,7 @@ async_funcdef= ASYNC _ funcdef
 funcdef='def' _ id:NAME params:parameters ('->'_ test)? _ ':' _ body:suite 
 {
       return {
-        type: "FunctionDeclaration",
+        type: "FunctionDefinition",
         id: id,
         params: params,
         body: body

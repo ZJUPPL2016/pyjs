@@ -101,19 +101,24 @@ function createSymbol(name) {
     };
 }
 
-function checkType(a, b) {
-    return a.type === b.type;
+function checkType(a, b, validList) {
+    if (a.type !== b.type) {
+        //error
+    } else if (validList !== undefined && validList.indexOf(a.type) === -1) {
+        //error
+    }
 }
 
 function run(stmt) {
     switch (stmt.type) {
         case BaseTypeEnum.NUMBER:
         case BaseTypeEnum.STRING:
+        case BaseTypeEnum.BOOLEAN:
             return stmt; //stmt is a basic object
         case BaseTypeEnum.NAME:
-            var symbolDataReadOnly = findSymbol(stmt.data)();
-            if (symbolDataReadOnly !== undefined) {
-                return symbolReadOnly;
+            var symbolReadOnly = findSymbol(stmt.data)();
+            if (symbolReadOnly !== undefined) {
+                return symbolReadOnly.data;
             } else {
                 //error
             }
@@ -130,24 +135,63 @@ function run(stmt) {
                     //error
                 }
             }
+            var rightData = run(stmt.right);
+            if (stmt.operator !== '=') {
+                checkType(symbolFunction(), rightData);
+            }
             switch (stmt.operator) {
                 case '=':
-                    console.log(symbolFunction());
-                    symbolFunction(run(stmt.right));
+                    symbolFunction(rightData);
                     console.log(symbolFunction());
                     break;
                 case '+=':
+                    symbolFunction(new AbstractObject(rightData.type, symbolFunction().data + rightData.data));
+                    console.log(symbolFunction());
+                    break;
                 case '-=':
+                    symbolFunction(new AbstractObject(rightData.type, symbolFunction().data - rightData.data));
+                    console.log(symbolFunction());
+                    break;
                 case '*=':
+                    symbolFunction(new AbstractObject(rightData.type, symbolFunction().data * rightData.data));
+                    console.log(symbolFunction());
+                    break;
                 case '/=':
+                    symbolFunction(new AbstractObject(rightData.type, symbolFunction().data / rightData.data));
+                    console.log(symbolFunction());
+                    break;
                 case '%=':
+                    symbolFunction(new AbstractObject(rightData.type, symbolFunction().data % rightData.data));
+                    console.log(symbolFunction());
+                    break;
                 case '&=':
+                    symbolFunction(new AbstractObject(rightData.type, symbolFunction().data & rightData.data));
+                    console.log(symbolFunction());
+                    break;
                 case '|=':
+                    symbolFunction(new AbstractObject(rightData.type, symbolFunction().data | rightData.data));
+                    console.log(symbolFunction());
+                    break;
                 case '^=':
+                    symbolFunction(new AbstractObject(rightData.type, symbolFunction().data ^ rightData.data));
+                    console.log(symbolFunction());
+                    break;
                 case '<<=':
+                    symbolFunction(new AbstractObject(rightData.type, symbolFunction().data << rightData.data));
+                    console.log(symbolFunction());
+                    break;
                 case '>>=':
+                    symbolFunction(new AbstractObject(rightData.type, symbolFunction().data >> rightData.data));
+                    console.log(symbolFunction());
+                    break;
                 case '**=':
+                    symbolFunction(new AbstractObject(rightData.type, symbolFunction().data ** rightData.data));
+                    console.log(symbolFunction());
+                    break;
                 case '//=':
+                    symbolFunction(new AbstractObject(rightData.type, Math.pow(symbolFunction().data, 1 / rightData.data)));
+                    console.log(symbolFunction());
+                    break;
                 default:
                     break;
             }
@@ -155,7 +199,9 @@ function run(stmt) {
         case "BinaryExpression":
             var leftData = run(stmt.left);
             var rightData = run(stmt.right);
-            checkType(leftData, rightData);
+            if (checkType(leftData, rightData) === false) {
+                //error
+            }
             switch (stmt.operator) {
                 case '>':
                     return new BooleanObject(leftData.data > rightData.data);
@@ -179,7 +225,8 @@ function run(stmt) {
         case "IfStatement":
         case "WhileStatement":
         case "ForStatement":
-        case "FunctionDefine":
+        case "FunctionDefinition":
+        case "Global":
     }
 }
 
