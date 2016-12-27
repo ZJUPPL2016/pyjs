@@ -155,25 +155,42 @@ function run(stmt) {
         case "BinaryExpression":
             var leftData = run(stmt.left);
             var rightData = run(stmt.right);
-            checkType(leftData, rightData);
+            if(checkType(leftData, rightData) === false){
+                //error
+            }
             switch (stmt.operator) {
                 case '>':
                     return new BooleanObject(leftData.data > rightData.data);
                 case '<':
+                    return new BooleanObject(leftData.data < rightData.data);
                 case '==':
+                    return new BooleanObject(leftData.data == rightData.data);
                 case '!=':
+                    return new BooleanObject(leftData.data != rightData.data);
                 case 'or':
+                    return new BooleanObject(leftData.data || rightData.data);                    
                 case 'and':
+                    return new BooleanObject(leftData.data && rightData.data);                
                 case 'not':
+                // ???
                 case '<<':
+                    return new BooleanObject(leftData.data << rightData.data);                                    
                 case '>>':
+                    return new BooleanObject(leftData.data >> rightData.data);                    
                 case '+':
+                    return new BooleanObject(leftData.data + rightData.data);                                    
                 case '-':
+                    return new BooleanObject(leftData.data - rightData.data);                                                    
                 case '*':
+                    return new BooleanObject(leftData.data * rightData.data);                                                    
                 case '/':
+                    return new BooleanObject(leftData.data / rightData.data);                                                    
                 case '%':
+                    return new BooleanObject(leftData.data % rightData.data);                                                    
                 case '**':
+                    return new BooleanObject(leftData.data ** rightData.data);                                                    
                 case '//':
+                    return new BooleanObject(Math.floor(leftData.data / rightData.data));                                                    
             }
             break;
         case "IfStatement":
