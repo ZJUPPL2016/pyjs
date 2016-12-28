@@ -1,0 +1,5 @@
+Todo
+1. 实现list，语法树还需要支持subscript运算
+2. 实现for循环，continue关键字还未处理
+3. trailer的产生奇怪的null要去掉
+4. 实现函数定义与调用
