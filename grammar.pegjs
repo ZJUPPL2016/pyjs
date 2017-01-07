@@ -35,10 +35,10 @@
     }, head);
   }
   
-  function buildAssignmentExpression(head, tail) {
+  function buildLogicalExpression(head, tail) {
     return tail.reduce(function(result, element) {
       return {
-        type: "AssignmentExpression",
+        type: "LogicalExpression",
         operator: element[1],
         left: result,
         right: element[3]
@@ -54,51 +54,6 @@
     return head ? extractList(head,index):null
   }
   var indentStack = [], indent = "";
-
-  var BaseTypeEnum = Object.freeze({
-    NUMBER: 'NUMBER',
-    STRING: 'STRING',
-    NAME: 'NAME',
-    SYMBOL: 'SYMBOL',
-    BOOLEAN: 'BOOLEAN'
-  });
-
-  class AbstractObject {
-      constructor(type, data) {
-          this.type = type;
-          this.data = data;
-      }
-  }
-
-  class NumberObject extends AbstractObject {
-      constructor(num) {
-          super(BaseTypeEnum.NUMBER, num);
-      }
-  }
-
-  class StringObject extends AbstractObject {
-      constructor(str) {
-          super(BaseTypeEnum.STRING, str);
-      }
-  }
-
-  class NameObject extends AbstractObject {
-      constructor(name) {
-          super(BaseTypeEnum.NAME, name);
-      }
-  }
-
-  class SymbolObject extends AbstractObject {
-      constructor(data) {
-          super(BaseTypeEnum.SYMBOL, data);
-      }
-  }
-
-  class BooleanObject extends AbstractObject {
-      constructor(data) {
-          super(BaseTypeEnum.BOOLEAN, data);
-      }
-  }
 }
 Start
   = file_input
@@ -146,16 +101,16 @@ simple_stmt= head:(small_stmt) tail:(_ ';'_ small_stmt)* (';')? NEWLINE
         : head;
     }
 small_stmt= global_stmt/flow_stmt/expr_stmt
-expr_stmt= left:testlist_star_expr  _ operator:augassign _ right:(yield_expr/testlist) {
-    return {
-      type: "AssignmentExpression",
-      operator: operator,
-      left: left,
-      right: right
-    };
-  } 
+expr_stmt= left:testlist_star_expr  _ operator:augassign _ right:(yield_expr/testlist)
+  { 
+  return {
+        type: "AssignmentExpression",
+        operator: operator,
+        left: left,
+        right: right
+      };} 
  /head:testlist_star_expr _ tail:(_ '=' _ (yield_expr/testlist_star_expr))*
- { return buildAssignmentExpression(head, tail);}
+ { return buildBinaryExpression(head, tail);}
     
 testlist_star_expr= head:(test/star_expr) (',' (test/star_expr))* (',')?{return head;}
 augassign=('+=' / '-=' / '*=' / '@=' / '/='/ '%=' / '&=' / '|=' / '^=' /
@@ -167,9 +122,10 @@ pass_stmt= 'pass'
 flow_stmt= break_stmt / continue_stmt / return_stmt / raise_stmt / yield_stmt
 break_stmt
 ='break'{return { type: "BreakStatement", label: null }; }
-continue_stmt= 'continue'
-return_stmt
-= 'return' _ arg:(testlist)?{return {type:"ReturnStatement", argument:arg};}
+continue_stmt= 'continue'{
+	return {type:"continue"};
+    }
+return_stmt= 'return' _ (testlist)?
 yield_stmt= yield_expr
 raise_stmt= 'raise' _ (test ('from' test)?)?
 import_stmt= import_name / import_from
@@ -235,7 +191,7 @@ with_item= test ( _ 'as' _ expr)?
 
 except_clause= 'except' _ (test ( _ 'as' _ NAME)?)?
 suite= head:simple_stmt {return head;} / NEWLINE INDENT left:stmt right:(SAMEDENT stmt)* DEDENT
-{return buildList(left, right, 1);}
+{return buildList(left, right, 1);} 
 
 test=head:or_test ('if' _ or_test _ 'else' _ test)? {return head;}/lambdef
 test_nocond= or_test / lambdef_nocond
@@ -251,54 +207,77 @@ comp_op= '>='/'<='/'<'/'>'/'=='/'<>'/'!='/'in'/('not' 'in')/'is'/('is' 'not')
 star_expr= '*' _ expr
 expr= head:xor_expr tail:(_ '|' _ xor_expr)*
 { 
-  return buildBinaryExpression(head, tail);
+  return buildLogicalExpression(head, tail);
 }
-xor_expr= head:and_expr tail:(_ '^' _ and_expr)* {return buildBinaryExpression(head, tail);}
-and_expr= head:shift_expr tail:(_ '&' _ shift_expr)*{return buildBinaryExpression(head, tail);}
-shift_expr= head:arith_expr tail:( _ ('<<'/'>>') _ arith_expr)*{return buildBinaryExpression(head, tail);}
+xor_expr= head:and_expr tail:(_ '^' _ and_expr)* {return buildLogicalExpression(head, tail);}
+and_expr= head:shift_expr tail:(_ '&' _ shift_expr)*{return buildLogicalExpression(head, tail);}
+shift_expr= head:arith_expr tail:( _ ('<<'/'>>') _ arith_expr)*{return buildLogicalExpression(head, tail);}
 arith_expr= head:term tail:( _ ('+'/'-') _ term)*{return buildBinaryExpression(head, tail);}
 term= head:factor tail:( _ ('*'/'@'/'/'/'%'/'//') _ factor)*{return buildBinaryExpression(head, tail); }
 factor= ('+'/'-'/'~') factor / power
 power= head:atom_expr tail:( _ '**' _ factor)?
 { 
-  if (tail) {
-    return buildBinaryExpression(head, tail);
-  } else {
-    return head;
-  }
-}
-atom_expr= (AWAIT)? mid:atom t:trailer* {
-  if(t.length == 0)
-    return mid;
-  else
-    return {type:"AtomWithTrailer", name: mid, trailer:t};
-}
+  return head;
+    }
+atom_expr= (AWAIT)? mid:atom tail:trailer*
+{return {atom:mid,
+         trailer:tail.length>0?tail:null}};
 atom= '(' _ head:(yield_expr/testlist_comp)? _ ')' 
 {
   return head;
 }/
        '[' _ head:(testlist_comp)? _ ']' 
        {
-          return head;
+          return {  type: "List",
+                    content:head
+          };
        }/
        '{' _ head:(dictorsetmaker)? _ '}' 
        {
           return head;
        }/
-       head:( BOOLEAN / NAME / NUMBER / STRING+ / '...' / 'None' )
+       head:(NAME / NUMBER / STRING+ / '...' / 'None' / 'True' / 'False')
       {return head;}
       
 testlist_comp= head:(test/star_expr)  tail:( _ ',' _ (test/star_expr))* (',')? 
 {return buildList(head,tail,3);}
-trailer= '('  _ arglist:(arglist)? _ ')' {return {type:"CallFunction", arglist:arglist};}
-        / '[' _  subscriptlist _ ']' 
-        /'.' NAME
-subscriptlist= subscript ( _ ',' _ subscript)* (',')?
 
-subscript= test / (test)? ':' (test)? (sliceop)?
+trailer= '('  _ head:(arglist)? _ ')' 
+{return {
+         type:"arglist",
+		 body:head 
+         };
+   }
+
+/ '[' _  body:subscriptlist _ ']' 
+{
+      return {
+        type: "subscript",
+        body: body
+      };
+    }
+
+/'.' head:NAME
+{ 
+	return {
+    	type:"member",
+        body:head
+    }
+}
+
+subscriptlist= head:subscript tail:( _ ',' _ subscript)* (',')?
+{return buildList(head,tail,3);}
+
+subscript= head:test 
+{return head;}
+/ (test)? ':' (test)? (sliceop)?
+{
+    
+
+}
 sliceop=':' (test)? 
 exprlist= head:(expr/star_expr) tail:( _ ',' _ (expr/star_expr))* (',')?
-{return buildBinaryExpression(head, tail);}
+{return buildLogicalExpression(head, tail);}
 
 testlist= head:test tail:( _ ',' _ test)* (',')?
 {return buildList(head, tail,3);}
@@ -309,16 +288,12 @@ dictorsetmaker=( ((test _ ':' _ test /  '**' expr)
                    
 classdef= 'class' _ NAME ( '(' _ (arglist)? _ ')' )? _ ':' _ suite
 
-arglist=head:argument tail:( _ ',' _ argument)*  (',')? {
-  return buildList(head, tail, 3);
-}
-
-argument= t:( test (comp_for)? /
+arglist=head:argument tail:( _ ',' _ argument)*  (',')?
+{return buildList(head, tail,3);}
+argument= ( head:test (comp_for)? {return head;}/
             test '=' test /
             '**' test /
-            '*' test ) {
-              return t;
-            }
+            '*' test )
 
 comp_iter= comp_for / comp_if
 comp_for= 'for' _ exprlist _ 'in' _ or_test (comp_iter)?
@@ -332,11 +307,15 @@ yield_arg='from' _ test / testlist
 
 whitespace = "\t" / "\v" / "\f" / " " 
 _  = whitespace*
-NAME=[a-zA-Z][0-9a-zA-Z_]* {
-  return new NameObject(text());
-}
-
-NEWLINE="\r\n" / "\n" / "\r"
+NAME=head:[a-zA-Z]tail:[0-9a-zA-Z_]*{
+  var output=head;
+  var i;
+  for(i=0;i<tail.length;i++)
+  {
+    output+=tail[i]
+  }
+return output;}
+NEWLINE=&{}"\r\n" / "\n" / "\r"
 ENDMARKER= &{return true;} {return "END";}
 ASYNC='async'
 INDENT = i:[ \t]+ &{return i.length > indent.length;} {indentStack.push(indent);indent = i.join(""); }
@@ -351,19 +330,29 @@ SAMEDENT = i:[ \t]* &{
 }
 DEDENT = &{return true;}{indent = indentStack.pop();}
 AWAIT='await'
-NUMBER=[+-]?([0-9]*[.])?[0-9]+ {
-  return new NumberObject(Number(text()));
-  //return Number(text());
-}
-
-STRING= '"' chars:DoubleStringCharacter* '"' {
-  return new StringObject(text().slice(1, text().length - 1));
-} / "'" chars:SingleStringCharacter* "'" {
-  return new StringObject(text().slice(1, text().length - 1));
-}
-
-BOOLEAN = 'True' {return new BooleanObject(true);} 
-        / 'False'{return new BooleanObject(false);} 
+NUMBER=one:[+-]?two:([0-9]*[.])?three:[0-9]+{
+  var output="";
+  var i;
+  if(one)
+  {
+     output+=one;
+  }
+  if(two)
+  {
+     output+=two;
+  }
+  for(i=0;i<three.length;i++)
+  {
+     output+=three[i];
+  }
+  return output;}
+STRING
+  = '"' chars:DoubleStringCharacter* '"' {
+      return { type: "Literal", value: chars.join("") };
+    }
+  / "'" chars:SingleStringCharacter* "'" {
+      return { type: "Literal", value: chars.join("") };
+    }
 
 DoubleStringCharacter
   = !('"' / "\\" / LineTerminator) . { return text(); }
